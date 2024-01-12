@@ -1,7 +1,0 @@
-venv/
-.venv
-files/
-.cache/
-.streamlit
-*.ipynb
-falcon.bin
