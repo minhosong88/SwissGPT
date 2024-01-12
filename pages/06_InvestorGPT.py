@@ -118,7 +118,6 @@ st.set_page_config(
     page_title="InvestorGPT",
     page_icon="📈",
 )
-st.write(sys.path)
 st.markdown(
     """
     # InvestorGPT
