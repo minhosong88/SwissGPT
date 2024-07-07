@@ -5,3 +5,4 @@ files/
 .streamlit
 *.ipynb
 falcon.bin
+.env
