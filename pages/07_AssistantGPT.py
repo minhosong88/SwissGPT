@@ -1,3 +1,4 @@
+import time
 import yfinance as yf
 from duckduckgo_search import DDGS
 from itertools import islice
@@ -236,8 +237,8 @@ st.set_page_config(
     page_title="AssistantGPT",
     page_icon="💻",
 )
-st.markdown(
-    """
+
+main_markdown = """
     # AssistantGPT
     
     Welcome to AssistantGPT.
@@ -246,44 +247,126 @@ st.markdown(
     
     Provide the name of the company to begin with.
     """
-)
 
-query = st.text_input("Write the name of the company you are interested in.")
 
-if query:
-    paint_history()
-    write_message(query, "human")
-    if not st.session_state.get("thread"):
-        thread = client.beta.threads.create(
-            messages=[
-                {
-                    "role": "user",
-                    "content": query
-                }
-            ]
-        )
-        st.session_state["thread"] = [thread]
-    else:
-        thread = st.session_state["thread"][0]
-        send_message(thread.id, query)
-    run = client.beta.threads.runs.create(
-        thread_id=thread.id,
-        assistant_id=assistant_id,
+file_search_markdown = """
+    # File Search Mode
+    
+    You have uploaded a file.
+    
+    AssistantGPT will process the file and provide insights based on its content.
+    """
+
+# Sidebar for file upload
+with st.sidebar:
+    uploaded_file = st.file_uploader("Upload a .txt .pdf or .docx file", type=[
+        "pdf", "txt", "docx"])
+
+if uploaded_file:
+    st.markdown(file_search_markdown)
+    vector_store = client.beta.vector_stores.create(
+        name=f"{uploaded_file.name}")
+    file_paths = [f"./files/{uploaded_file.name}"]
+    file_streams = [open(path, 'rb') for path in file_paths]
+
+    file_batch = client.beta.vector_stores.file_batches.upload_and_poll(
+        vector_store_id=vector_store.id,
+        files=file_streams,
     )
-    with st.chat_message("ai"):
-        with st.spinner("Creating an answer..."):
-            while get_run(run.id, thread.id).status in [
-                "queued",
-                "in_progress",
-                "requires_action",
-            ]:
-                if get_run(run.id, thread.id).status == "requires_action":
-                    submit_tool_outputs(run.id, thread.id)
-        message = get_messages(thread.id)[
-            0].content[0].text.value.replace("$", "\$")
-        save_message(message, "ai")
-        st.markdown(message)
+    assistant = client.beta.assistants.update(
+        assistant_id=assistant_id,
+        tool_resources={
+            "file_search": {
+                "vector_store_ids": [vector_store.id]
+            }
+        },
+    )
+    message_file = client.files.create(
+        file=open(f"./files/{uploaded_file.name}", "rb"),
+        purpose="assistants"
+    )
+    st.write("File uploaded successfully!")
+    query = st.text_input("Ask anything about this file")
+    if query:
+        paint_history()
+        write_message(query, "human")
+        if not st.session_state.get("thread"):
+            thread = client.beta.threads.create(
+                messages=[
+                    {
+                        "role": "user",
+                        "content": query,
+                        "attachments": [
+                            {"file_id": message_file.id, "tools": [
+                                {"type": "file_search"}]}
+                        ]
+                    }
+                ]
+            )
+            send_message(thread.id, query)
+            st.session_state["thread"] = [thread]
+        else:
+            thread = st.session_state["thread"][0]
+            send_message(thread.id, query)
+        run = client.beta.threads.runs.create(
+            thread_id=thread.id,
+            assistant_id=assistant_id,
+        )
+        with st.chat_message("ai"):
+            with st.spinner("Creating an answer..."):
+                while get_run(run.id, thread.id).status in [
+                    "queued",
+                    "in_progress",
+                    "requires_action",
+                ]:
+                    time.sleep(0.5)
+            message = get_messages(thread.id)[
+                0].content[0].text.value.replace("$", "\$")
+            save_message(message, "ai")
+            st.markdown(message)
+    else:
+        st.session_state["messages"] = []
+        st.session_state["thread"] = []
 
 else:
-    st.session_state["messages"] = []
-    st.session_state["thread"] = []
+    st.markdown(main_markdown)
+    query = st.text_input(
+        "Write the name of the company you are interested in.")
+
+    if query:
+        paint_history()
+        write_message(query, "human")
+        if not st.session_state.get("thread"):
+            thread = client.beta.threads.create(
+                messages=[
+                    {
+                        "role": "user",
+                        "content": query
+                    }
+                ]
+            )
+            st.session_state["thread"] = [thread]
+        else:
+            thread = st.session_state["thread"][0]
+            send_message(thread.id, query)
+        run = client.beta.threads.runs.create(
+            thread_id=thread.id,
+            assistant_id=assistant_id,
+        )
+        with st.chat_message("ai"):
+            with st.spinner("Creating an answer..."):
+                while get_run(run.id, thread.id).status in [
+                    "queued",
+                    "in_progress",
+                    "requires_action",
+                ]:
+                    if get_run(run.id, thread.id).status == "requires_action":
+                        submit_tool_outputs(run.id, thread.id)
+            message = get_messages(thread.id)[
+                0].content[0].text.value.replace("$", "\$")
+            save_message(message, "ai")
+            st.markdown(message)
+
+    else:
+        st.session_state["messages"] = []
+        st.session_state["thread"] = []
