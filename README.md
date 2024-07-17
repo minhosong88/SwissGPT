@@ -17,7 +17,6 @@ SwissGPT is a versatile AI-powered toolset, akin to a Swiss knife, that can be u
 - [Installation and Setup](#installation-and-setup)
 - [Usage Instructions](#usage-instructions)
 - [Contributing](#contributing)
-- [License](#license)
 - [Contact Information](#contact-information)
 
 ## Overview
@@ -127,7 +126,7 @@ ChefGPT provides recipes based on given ingredients and allows users to save the
 
 1. Clone the repository:
     ```sh
-    git clone https://github.com/yourusername/SwissGPT.git
+    git clone https://github.com/minhosong88/SwissGPT.git
     ```
 
 2. Navigate to the project directory:
